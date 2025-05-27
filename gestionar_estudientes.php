@@ -24,6 +24,14 @@
     $query_acudientes = "SELECT id_acudiente, nombre, apellidos FROM acudiente ORDER BY nombre, apellidos";
     $resultado_acudientes = mysqli_query($conexion, $query_acudientes);
 
+    // Obtener lista de grupos para el formulario
+    $query_grupos = "SELECT g.id_grupo, g.nombre, gr.nombre as nombre_grado 
+                     FROM grupo g 
+                     LEFT JOIN grado gr ON g.id_grado = gr.id_grado 
+                     ORDER BY g.nombre";
+    $resultado_grupos = mysqli_query($conexion, $query_grupos);
+
+    // Procesar formulario de agregar
     // Procesar formulario de agregar
     if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['agregar'])) {
         $nombre = mysqli_real_escape_string($conexion, $_POST['nombre']);
@@ -33,22 +41,37 @@
         $correo = mysqli_real_escape_string($conexion, $_POST['correo']);
         $contrasena = mysqli_real_escape_string($conexion, $_POST['contrasena']);
         $id_acudiente = mysqli_real_escape_string($conexion, $_POST['id_acudiente']);
-        
-        // Verificar si el correo ya existe
-        $verificar = "SELECT * FROM estudiante WHERE correo = '$correo'";
-        $resultado_verificar = mysqli_query($conexion, $verificar);
-        
-        if (mysqli_num_rows($resultado_verificar) > 0) {
-            $mensaje = "El correo electrónico ya está registrado";
+        $id_grupo = mysqli_real_escape_string($conexion, $_POST['id_grupo']);
+
+        // Validar que se haya seleccionado un grupo
+        if (empty($id_grupo)) {
+            $mensaje = "Debe seleccionar un grupo.";
         } else {
-            // Insertamos el nuevo estudiante
-            $insertar = "INSERT INTO estudiante (nombre, apellidos, doc_identidad, telefono, correo, contraseña, id_acudiente) 
-                        VALUES ('$nombre', '$apellidos', '$doc_identidad', '$telefono', '$correo', '$contrasena', '$id_acudiente')";
-            
-            if (mysqli_query($conexion, $insertar)) {
-                $mensaje = "Estudiante agregado correctamente";
+            // Verificar si el correo ya existe
+            $verificar = "SELECT * FROM estudiante WHERE correo = '$correo'";
+            $resultado_verificar = mysqli_query($conexion, $verificar);
+
+            if (mysqli_num_rows($resultado_verificar) > 0) {
+                $mensaje = "El correo electrónico ya está registrado";
             } else {
-                $mensaje = "Error al agregar estudiante: " . mysqli_error($conexion);
+                // Insertamos el nuevo estudiante
+                $insertar = "INSERT INTO estudiante (nombre, apellidos, doc_identidad, telefono, correo, contraseña, id_acudiente) 
+                             VALUES ('$nombre', '$apellidos', '$doc_identidad', '$telefono', '$correo', '$contrasena', '$id_acudiente')";
+
+                if (mysqli_query($conexion, $insertar)) {
+                    // Obtener el ID del estudiante recién insertado
+                    $id_estudiante = mysqli_insert_id($conexion);
+
+                   // Insertar en la tabla grupo_estudiante con el año actual
+                    $ano_actual = date('Y');
+                    $insertar_grupo = "INSERT INTO grupo_estudiante (id_grupo, año, id_estudiante) 
+                                       VALUES ('$id_grupo', '$ano_actual', '$id_estudiante')";
+                    mysqli_query($conexion, $insertar_grupo);
+
+                    $mensaje = "Estudiante registrado correctamente";
+                } else {
+                    $mensaje = "Error al registrar el estudiante";
+                }
             }
         }
     }
@@ -112,6 +135,17 @@
                 <?php while($acudiente = mysqli_fetch_assoc($resultado_acudientes)): ?>
                     <option value="<?php echo $acudiente['id_acudiente']; ?>">
                         <?php echo $acudiente['nombre'] . ' ' . $acudiente['apellidos']; ?>
+                    </option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+        <div>
+            <label for="id_grupo">Grupo:</label>
+            <select id="id_grupo" name="id_grupo">
+                <option value="">Seleccione un grupo</option>
+                <?php while($grupo = mysqli_fetch_assoc($resultado_grupos)): ?>
+                    <option value="<?php echo $grupo['id_grupo']; ?>">
+                        <?php echo $grupo['nombre'] . ' - ' . $grupo['nombre_grado']; ?>
                     </option>
                 <?php endwhile; ?>
             </select>

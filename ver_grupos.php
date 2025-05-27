@@ -53,7 +53,7 @@
         if (isset($_POST['actualizar'])) {
             $id_grupo_original = mysqli_real_escape_string($conexion, $_POST['id_grupo_original']);
             $id_grupo = mysqli_real_escape_string($conexion, $_POST['id_grupo']);
-            $ano = mysqli_real_escape_string($conexion, $_POST['ano']);
+            $nombre_grupo = mysqli_real_escape_string($conexion, $_POST['nombre_grupo']);
             $id_grado = mysqli_real_escape_string($conexion, $_POST['id_grado']);
             
             // Verificar si el nuevo ID del grupo ya existe (pero no es el mismo grupo)
@@ -65,7 +65,7 @@
             } else {
                 $actualizar = "UPDATE grupo SET 
                               id_grupo = '$id_grupo', 
-                              ano = '$ano', 
+                              nombre = '$nombre_grupo',
                               id_grado = '$id_grado'
                               WHERE id_grupo = '$id_grupo_original'";
                 
@@ -79,16 +79,16 @@
     }
 
     // Obtener datos de grupos para la tabla (con búsqueda si aplica)
-    $query_grupos = "SELECT g.id_grupo, g.ano, g.id_grado, gr.nombre as nombre_grado 
+    $query_grupos = "SELECT g.id_grupo, g.nombre as nombre_grupo, g.id_grado, gr.nombre as nombre_grado 
                      FROM grupo g 
                      LEFT JOIN grado gr ON g.id_grado = gr.id_grado";
     
     // Añadir condición de búsqueda si existe
     if (!empty($busqueda)) {
-        $query_grupos .= " WHERE g.id_grupo LIKE '%$busqueda%' OR gr.nombre LIKE '%$busqueda%'";
+        $query_grupos .= " WHERE g.id_grupo LIKE '%$busqueda%' OR g.nombre LIKE '%$busqueda%' OR gr.nombre LIKE '%$busqueda%'";
     }
     
-    $query_grupos .= " ORDER BY g.ano DESC, gr.nombre";
+    $query_grupos .= " ORDER BY g.id_grupo, gr.nombre";
     $resultado_grupos = mysqli_query($conexion, $query_grupos);
     
     // Obtener lista de grados para el formulario de edición
@@ -142,7 +142,7 @@
     <h2>Buscar Grupos</h2>
     <form method="GET" action="">
         <div>
-            <label for="busqueda">Buscar por ID o Grado:</label>
+            <label for="busqueda">Buscar por ID, Nombre o Grado:</label>
             <input type="text" id="busqueda" name="busqueda" value="<?php echo htmlspecialchars($busqueda); ?>">
             <button type="submit" name="buscar">Buscar</button>
             <?php if (!empty($busqueda)): ?>
@@ -156,7 +156,7 @@
         <thead>
             <tr>
                 <th>ID Grupo</th>
-                <th>Año</th>
+                <th>Nombre del Grupo</th>
                 <th>Grado</th>
                 <th>Acciones</th>
             </tr>
@@ -169,7 +169,7 @@
             ?>
             <tr>
                 <td><?php echo $grupo['id_grupo']; ?></td>
-                <td><?php echo $grupo['ano']; ?></td>
+                <td><?php echo $grupo['nombre_grupo'] ? $grupo['nombre_grupo'] : 'Sin nombre'; ?></td>
                 <td>
                     <?php 
                     if($grupo['id_grado']) {
@@ -195,8 +195,8 @@
                                 <input type="text" name="id_grupo" value="<?php echo $grupo['id_grupo']; ?>" required>
                             </div>
                             <div>
-                                <label>Año:</label>
-                                <input type="date" name="ano" value="<?php echo $grupo['ano']; ?>" required>
+                                <label>Nombre del Grupo:</label>
+                                <input type="text" name="nombre_grupo" value="<?php echo $grupo['nombre_grupo']; ?>" required>
                             </div>
                             <div>
                                 <label>Grado:</label>

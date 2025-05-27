@@ -1,3 +1,4 @@
+
 <?php
     require 'modelo/conexion.php';
 
@@ -32,11 +33,14 @@
         if (isset($_POST['eliminar'])) {
             $id_estudiante = mysqli_real_escape_string($conexion, $_POST['id_estudiante']);
             
-            // Comprobar si tiene registros asociados en otras tablas (como grupo_estudiante)
-            $verificar = "SELECT * FROM estudiante_apoyo WHERE id_estudiante = $id_estudiante";
-            $resultado_verificar = mysqli_query($conexion, $verificar);
+            // Comprobar si tiene registros asociados en otras tablas
+            $verificar1 = "SELECT * FROM estudiante_apoyo WHERE id_estudiante = $id_estudiante";
+            $resultado_verificar1 = mysqli_query($conexion, $verificar1);
             
-            if (mysqli_num_rows($resultado_verificar) > 0) {
+            $verificar2 = "SELECT * FROM grupo_estudiante WHERE id_estudiante = $id_estudiante";
+            $resultado_verificar2 = mysqli_query($conexion, $verificar2);
+            
+            if (mysqli_num_rows($resultado_verificar1) > 0 || mysqli_num_rows($resultado_verificar2) > 0) {
                 $mensaje = "No se puede eliminar este estudiante porque tiene registros asociados";
             } else {
                 $eliminar = "DELETE FROM estudiante WHERE id_estudiante = $id_estudiante";
@@ -59,6 +63,7 @@
             $correo = mysqli_real_escape_string($conexion, $_POST['correo']);
             $contrasena = mysqli_real_escape_string($conexion, $_POST['contrasena']);
             $id_acudiente = mysqli_real_escape_string($conexion, $_POST['id_acudiente']);
+            $id_grupo = mysqli_real_escape_string($conexion, $_POST['id_grupo']);
             
             // Verificar si el correo ya existe (pero no es el mismo estudiante)
             $verificar = "SELECT * FROM estudiante WHERE correo = '$correo' AND id_estudiante != $id_estudiante";
@@ -83,6 +88,19 @@
                 $actualizar .= " WHERE id_estudiante = $id_estudiante";
                 
                 if (mysqli_query($conexion, $actualizar)) {
+                    // Actualizar la asignación de grupo
+                    // Primero eliminar la asignación actual
+                    $eliminar_grupo = "DELETE FROM grupo_estudiante WHERE id_estudiante = $id_estudiante";
+                    mysqli_query($conexion, $eliminar_grupo);
+                    
+                    // Si se seleccionó un grupo, crear la nueva relación
+                    if (!empty($id_grupo)) {
+                        $ano_actual = date('Y');
+                        $insertar_grupo = "INSERT INTO grupo_estudiante (id_grupo, ano, id_estudiante) 
+                                         VALUES ('$id_grupo', '$ano_actual', '$id_estudiante')";
+                        mysqli_query($conexion, $insertar_grupo);
+                    }
+                    
                     $mensaje = "Estudiante actualizado correctamente";
                 } else {
                     $mensaje = "Error al actualizar estudiante: " . mysqli_error($conexion);
@@ -92,9 +110,17 @@
     }
 
     // Obtener datos de estudiantes para la tabla (con búsqueda si aplica)
-    $query_estudiantes = "SELECT e.*, a.nombre as nombre_acudiente, a.apellidos as apellidos_acudiente 
+    $query_estudiantes = "SELECT e.*, 
+                                 a.nombre as nombre_acudiente, 
+                                 a.apellidos as apellidos_acudiente,
+                                 g.id_grupo,
+                                 g.nombre as nombre_grupo,
+                                 gr.nombre as nombre_grado
                          FROM estudiante e 
-                         LEFT JOIN acudiente a ON e.id_acudiente = a.id_acudiente";
+                         LEFT JOIN acudiente a ON e.id_acudiente = a.id_acudiente
+                         LEFT JOIN grupo_estudiante ge ON e.id_estudiante = ge.id_estudiante
+                         LEFT JOIN grupo g ON ge.id_grupo = g.id_grupo
+                         LEFT JOIN grado gr ON g.id_grado = gr.id_grado";
     
     // Añadir condición de búsqueda si existe
     if (!empty($busqueda)) {
@@ -112,6 +138,19 @@
     $acudientes = array();
     while ($acudiente = mysqli_fetch_assoc($resultado_acudientes)) {
         $acudientes[] = $acudiente;
+    }
+    
+    // Obtener lista de grupos para el formulario de edición
+    $query_grupos = "SELECT g.id_grupo, g.nombre, gr.nombre as nombre_grado 
+                     FROM grupo g 
+                     LEFT JOIN grado gr ON g.id_grado = gr.id_grado 
+                     ORDER BY g.nombre";
+    $resultado_grupos_edit = mysqli_query($conexion, $query_grupos);
+    
+    // Crear un array para usar en los formularios de edición
+    $grupos = array();
+    while ($grupo = mysqli_fetch_assoc($resultado_grupos_edit)) {
+        $grupos[] = $grupo;
     }
     
     // Debug: Comprobar cuántos estudiantes hay en la base de datos
@@ -175,6 +214,7 @@
                 <th>Teléfono</th>
                 <th>Correo</th>
                 <th>Acudiente</th>
+                <th>Grupo</th>
                 <th>Acciones</th>
             </tr>
         </thead>
@@ -197,6 +237,15 @@
                         echo $estudiante['nombre_acudiente'] . ' ' . $estudiante['apellidos_acudiente'];
                     } else {
                         echo "Sin acudiente asignado";
+                    }
+                    ?>
+                </td>
+                <td>
+                    <?php 
+                    if($estudiante['id_grupo']) {
+                        echo $estudiante['nombre_grupo'] . ' (' . $estudiante['nombre_grado'] . ')';
+                    } else {
+                        echo "Sin grupo asignado";
                     }
                     ?>
                 </td>
@@ -247,6 +296,17 @@
                                 </select>
                             </div>
                             <div>
+                                <label>Grupo:</label>
+                                <select name="id_grupo">
+                                    <option value="">Sin grupo asignado</option>
+                                    <?php foreach($grupos as $grupo): ?>
+                                        <option value="<?php echo $grupo['id_grupo']; ?>" <?php echo ($estudiante['id_grupo'] == $grupo['id_grupo']) ? 'selected' : ''; ?>>
+                                            <?php echo $grupo['nombre'] . ' - ' . $grupo['nombre_grado']; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div>
                                 <button type="submit" name="actualizar">Guardar Cambios</button>
                             </div>
                         </form>
@@ -256,7 +316,7 @@
             <?php 
                 endwhile; 
             } else {
-                echo "<tr><td colspan='8'>No se encontraron estudiantes</td></tr>";
+                echo "<tr><td colspan='9'>No se encontraron estudiantes</td></tr>";
             }
             ?>
         </tbody>

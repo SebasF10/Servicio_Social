@@ -43,7 +43,7 @@
         <li><a href="gestionar_acudientes.php">Gestionar Acudientes</a></li>
         <li><a href="gestionar_administradores.php">Gestionar Administradores</a></li>
         <li><a href="gestionar_supervisores.php">Gestionar Supervisores</a></li>
-        <li><a href="#">Pedidos de ayuda</a></li>
+        <li><a href="gestionar_grupos.php">Gestionar_grupos</a></li>
         <li><a href="#">Soporte PDF</a></li>
     </ul>
     <hr>
